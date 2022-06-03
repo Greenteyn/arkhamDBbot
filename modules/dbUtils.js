@@ -1,30 +1,74 @@
-const {createClient} = require("redis");
+const MongoClient = require("mongodb").MongoClient;
 
-let client;
+const url = "mongodb://localhost:27017/";
+const dbName = "arkhamDBbot";
+const mongoClient = new MongoClient(url);
 
-const dbConnect = async () => {
-    client = createClient();
+const dbClientConnect = async () => {
+  try {
+    await mongoClient.connect();
+    console.log("Mongo client connected!");
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-    await client.on('error', (err) => console.log('Redis Client Error', err));
-    await client.connect();
+const dbConnectClose = async () => {
+  await mongoClient.close();
+  console.info("Connect closed");
+};
 
-    console.info('DB connected');
+const getCollection = async (collectionName) => {
+  try {
+    const db = mongoClient.db(dbName);
+    return (collection = db.collection(collectionName));
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-    return client;
-}
+const getFromCollection = async (collectionName, search) => {
+  try {
+    const db = await mongoClient.db(dbName);
+    const collection = db.collection(collectionName);
+    const findResult = await collection.find(search).toArray();
 
-const dbConnectClose = async (client) => {
-    await client.quit();
-    console.info('Connect closed');
-}
+    return findResult;
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-const getDbClient = async () => client;
+const addToCollection = async (collectionName, document) => {
+  try {
+    const collection = await getCollection(collectionName);
 
-const getAllCards = async () => {
-    const test = await client.hScan('card', 0);
-    console.log(test);
+    if (Array.isArray(document)) {
+      await collection.insertMany(document);
+    } else {
+      await collection.insertOne(document);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-    return client.hGetAll('card:01001');
-}
+const dropDB = async () => {
+  try {
+    const db = await mongoClient.db(dbName);
+    await db.dropDatabase();
+  } catch (error) {
+    console.log(error);
+  } finally {
+    console.log("DB dropped!");
+  }
+};
 
-module.exports = {dbConnect, dbConnectClose, getDbClient, getAllCards};
+module.exports = {
+  dbClientConnect,
+  dbConnectClose,
+  dropDB,
+  getCollection,
+  addToCollection,
+  getFromCollection,
+};
